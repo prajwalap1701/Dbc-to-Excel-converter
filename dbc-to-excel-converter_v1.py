@@ -54,17 +54,26 @@ def convert_to_excel():
 
         wb = Workbook()
         ws = wb.create_sheet('messages')
+        ws.auto_filter.ref = ws.dimensions
 
         sheet = wb["Sheet"]
         wb.remove(sheet)
 
         data1 = []
         for msg in db.messages:
-            data1.append([msg.name, msg.frame_id, msg.is_extended_frame, msg.length, msg.comment,
-                          re.sub('\[|\]|\'', '', str(msg.senders)), msg.send_type, msg.cycle_time, msg.bus_name])
+            data1.append(['0x'+(format(int(msg.frame_id), 'X')), msg.name, msg.comment, msg.length, msg.cycle_time, msg.send_type,
+                          str(int(msg.cycle_time) * 10) if int(msg.cycle_time) < 100 else str(int(msg.cycle_time) * 5),
+                          ' ', ' ',' ', ' ',msg.frame_id,
+                          re.sub('\[|\]|\'', '', str(msg.senders)), ' ', ' ', ' ', ' ', ' '])
+        ws.append(['Message ID [hex]', 'Message Name', 'Message Description', 'Data Length Code',
+                   'Cycle Time [ms]','Send Mode', 'Timeout [ms]', 'Delay Time [ms]',
+                   'Msg Start Delay Time [ms]', 'Cycle Time Fast [ms]','Number of Repetition',
+                   'Message ID [dez]','Transmitter','Diag Request','Diag Response','DiagState',
+                   'AutoSAR NM', 'IL Support'])
 
-        ws.append(['name', 'frame_id', 'is_extended_frame', 'length', 'comment',
-                   'senders', 'send_type', 'cycle_time', 'bus_name'])
+        ws.freeze_panes = "A2"
+        ws.print_title_rows = '1:1'
+
         for row in data1:
             ws.append(row)
         ref_str = "A1" + ":" + "I" + str(len(data1) + 1)
@@ -73,22 +82,31 @@ def convert_to_excel():
         ws.add_table(tab1)
 
         ws = wb.create_sheet('signals')
+        ws.auto_filter.ref = ws.dimensions
 
         data2 = []
         for msg in db.messages:
             for sig in msg.signals:
                 data2.append(
-                    [sig.name, sig.start, sig.length, "Motorola" if sig.byte_order == "big_endian" else "Intel",
-                     "Unsigned" if sig.is_signed == "FALSE" else "Signed", sig.initial, sig.scale, sig.offset,
+                    [str(msg.bus_name)+'-CAN', sig.name, sig.comment,msg.name, '0x'+(format(int(msg.frame_id), 'X')), sig.length, sig.start,
+                     "Motorola" if sig.byte_order == "big_endian" else "Intel",
+                     "Signed" if sig.is_signed == "FALSE" else "Unsigned",
+                     sig.scale, sig.offset,
                      sig.minimum,
-                     sig.maximum, sig.unit, re.sub('\[|\]|\'', '',
-                                                   str(sig.choices)[:-3].replace('OrderedDict', '').replace('(',
-                                                                                                            '').replace(
-                                                       ',', ':').replace('):', '  ')),
-                     sig.comment, re.sub('\[|\]|\'', '', str(sig.receivers)), sig.is_multiplexer])
+                     sig.maximum,sig.initial, sig.unit, msg.cycle_time, msg.send_type, msg.send_type,
+                     re.sub('\[|\]|\'', '',str(sig.choices)[:-3].replace('OrderedDict', '').replace('(','').replace(',', ':').replace('):', ' ')) if str(sig.choices)!='None' else 'n.a',
+                     ' ',
+                     str(int(msg.cycle_time)*10) if int(msg.cycle_time)<100 else str(int(msg.cycle_time)*5),
+                     '1' if str(sig.is_multiplexer)=='FALSE' else '0',
+                     re.sub('\[|\]|\'', '', str(msg.senders)),
+                     re.sub('\[|\]|\'','',  str(sig.receivers)),
+                     '-',' '])
+        ws.append(['Bus', 'Signal Name', 'Signal Description', 'Message Name', 'Message ID [Dec]', 'Signal length', 'Start Bit',  'Byte Order', 'Sign',  'Factor', 'Offset', 'minimum',
+                   'maximum','initial', 'unit','Cycle Time [ms]','Signal Send Mode','Message Send Mode', 'Value Matrix', 'Invalid Value [Hex]','Timeout Signal [ms]','Multiplex Value [dez]', 'Senders','Receivers', 'Timeout Value [Hex]','Comments'])
 
-        ws.append(['name', 'start', 'length', 'byte_order', 'is_signed', 'initial', 'scale', 'offset', 'minimum',
-                   'maximum', 'unit', 'value_table', 'comment', 'receivers', 'is_multiplexer'])
+        ws.freeze_panes = "A2"
+        ws.print_title_rows = '1:1'
+
         for row in data2:
             ws.append(row)
         ref_str = "A1" + ":" + "I" + str(len(data2) + 1)
