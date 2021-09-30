@@ -1,10 +1,7 @@
 from tkinter import *
 from tkinter import filedialog, messagebox
 import re
-
-import ctypes.wintypes
-CSIDL_PERSONAL = 5       # My Documents
-SHGFP_TYPE_CURRENT = 0   # Get current, not default value
+import os
 
 from openpyxl import Workbook
 from openpyxl.worksheet.table import Table
@@ -29,12 +26,10 @@ def browseFiles():
         filename = filedialog.askopenfilename(initialdir="/", title="Select a DBC File",
                                               filetypes=(("DBC files", "*.dbc*"), ("all files", "*.*")))
         op_name = setTextInput(filename)
-        buf = ctypes.create_unicode_buffer(ctypes.wintypes.MAX_PATH)
-        ctypes.windll.shell32.SHGetFolderPathW(None, CSIDL_PERSONAL, None, SHGFP_TYPE_CURRENT, buf)
 
         global inp, out
         inp = filename
-        out = str(buf.value).replace('\\', '/') + '/' + op_name
+        out = op_name
 
     except:
         messagebox.showerror("Error", "Unable to load File")
@@ -44,11 +39,10 @@ def convert_to_excel():
     try:
         global inp, out
         out2=out
-        temp_str = re.split("/", out2)[-1]
-        op_name_from_e2=e2.get()
-        if op_name_from_e2!=temp_str:
+        temp_str = out2
+        op_name_from_e2 = e2.get()
+        if op_name_from_e2 != temp_str:
             out=out2.replace(temp_str, op_name_from_e2)
-
 
         db = cantools.database.load_file(inp)
 
@@ -87,6 +81,10 @@ def convert_to_excel():
         data2 = []
         for msg in db.messages:
             for sig in msg.signals:
+                val_str = ""
+                if (str(sig.choices) != 'None'):
+                    for k, v in sig.choices.items():
+                        val_str += str(k) + ' \"' + str(v) + '\" '
                 data2.append(
                     [str(msg.bus_name)+'-CAN', sig.name, sig.comment,msg.name, '0x'+(format(int(msg.frame_id), 'X')), sig.length, sig.start,
                      "Motorola" if sig.byte_order == "big_endian" else "Intel",
@@ -94,7 +92,7 @@ def convert_to_excel():
                      sig.scale, sig.offset,
                      sig.minimum,
                      sig.maximum,sig.initial, sig.unit, msg.cycle_time, msg.send_type, msg.send_type,
-                     re.sub('\[|\]|\'', '',str(sig.choices)[:-3].replace('OrderedDict', '').replace('(','').replace(',', ':').replace('):', ' ')) if str(sig.choices)!='None' else 'n.a',
+                     val_str if str(sig.choices)!='None' else 'n.a',
                      ' ',
                      str(int(msg.cycle_time)*10) if int(msg.cycle_time)<100 else str(int(msg.cycle_time)*5),
                      '1' if str(sig.is_multiplexer)=='FALSE' else '0',
@@ -113,9 +111,9 @@ def convert_to_excel():
         tab2 = Table(displayName="Table2", ref=ref_str)
 
         ws.add_table(tab2)
-        wb.save(out)
+        wb.save(os.path.expanduser('~\\Documents\\'+out))
         resetTextInput()
-        messagebox.showinfo("Export Successful", "File saved to "+out)
+        messagebox.showinfo("Export Successful", "File saved to "+os.path.expanduser('~\\Documents\\'+out))
 
         print("Export successful")
 
